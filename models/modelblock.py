@@ -70,6 +70,9 @@ class NormConv(nn.Module):
 
 
 class MBConv(nn.Module):
+    """
+        논문 architecture 상 MoblieNet의 architecture를 기반으로 하는 convolution layer
+        """
     def __init__(self, in_channels, out_channels, strides, kernel_size, p=0.5):
         super().__init__()
         self.p = torch.tensor(p).float() if (in_channels == out_channels) else torch.tensor(1).float()

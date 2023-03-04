@@ -1,16 +1,14 @@
+import os
+import torch
+
 from torchvision import datasets
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
 import torchvision.transforms as transforms
 
-import os
 from conf import config
 
 
 class DataContainer:
-    """
-    torchvision에 내장된 데이터셋을 불러와 작업을 수행하는 방식
-    """
-
     def __init__(self):
         super(DataContainer, self).__init__()
         self.datapath = config['data']['dataset']
@@ -18,17 +16,21 @@ class DataContainer:
 
         self.train_ds = None
         self.val_ds = None
+        self.test_ds = None
 
         self.train_dl = None
         self.val_dl = None
+        self.test_dl = None
 
     def _load_data(self):
         if not os.path.exists(self.datapath):
             os.mkdir(self.datapath)
-
+        dataset_split_ratio = config['param']['split_ratio']
+        
         # load dataset
-        self.train_ds = datasets.STL10(self.datapath, split='train', download=False, transform=transforms.ToTensor())
-        self.val_ds = datasets.STL10(self.datapath, split='test', download=False, transform=transforms.ToTensor())
+        self.train_ds = datasets.STL10(self.datapath, split='train', download=True, transform=transforms.ToTensor())
+        self.train_ds, self.val_ds = random_split(self.train_ds, [dataset_split_ratio, 1- dataset_split_ratio], torch.Generator().manual_seed(0))
+        self.test_ds = datasets.STL10(self.datapath, split='test', download=True, transform=transforms.ToTensor())
 
     def _generate_directory(self):
         if not os.path.exists(self.save_dir):
@@ -46,12 +48,14 @@ class DataContainer:
         ])
 
         self.train_ds.transform = data_transform
-        self.val_ds.transform = data_transform
+        self.test_ds.transform = data_transform
 
     def _mount_dataloader(self):
         batch_size = config['param']['batch_size']
+        
         self.train_dl = DataLoader(self.train_ds, batch_size=batch_size, shuffle=True)
         self.val_dl = DataLoader(self.val_ds, batch_size=batch_size, shuffle=True)
+        self.test_dl = DataLoader(self.test_ds, batch_size=batch_size, shuffle=True)
 
     def run(self):
         self._load_data()

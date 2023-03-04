@@ -13,6 +13,7 @@ from datapreprocess import DataContainer
 import calculate as calc
 from conf import config
 from mylogger import SaveLog
+from utils import EarlyStopping
 
 num_epochs = config['param']['num_epochs']
 learning_rate = config['param']['lr']
@@ -27,6 +28,7 @@ dc.run()
 loss_func = nn.CrossEntropyLoss(reduction='mean')
 opt = optim.Adam(model.parameters(), lr=learning_rate)
 lr_scheduler = ReduceLROnPlateau(opt)
+earlystopper = EarlyStopping(mode='metric', patience=20, verbose=True)
 
 history = {'loss': {'train': [], 'val': []}, 'metric': {'train': [], 'val': []}}
 
@@ -48,9 +50,10 @@ for epoch in range(1, num_epochs+1):
     history['loss']['train'].append(train_loss)
     history['metric']['train'].append(train_metric)
 
-    model.eval()
+    model.eval()    
     with torch.no_grad():
         val_loss, val_metric = calc.loss_epoch(model, loss_func, dc.val_dl, device)
+        
     history['loss']['val'].append(val_loss)
     history['metric']['val'].append(val_metric)
 
@@ -62,9 +65,9 @@ for epoch in range(1, num_epochs+1):
     train_log.save(train_loss, train_metric)
     val_log.save(val_loss, val_metric)
     joblib.dump(history, './history.pkl')
-
-    if val_loss < best_loss:
-        best_loss = val_loss
-        print("save best weights")
-        save_dir = os.path.join(save_folder, 'weights_epoch{}.pt'.format(epoch))
-        torch.save(model.state_dict(), save_dir)
+    
+    earlystopper(target_score=val_metric*100, model=model)
+    
+    if earlystopper.early_stop:
+        print(f"Earlystopper stop trainging.")
+        break
